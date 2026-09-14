@@ -86,12 +86,64 @@
             white-space: nowrap;
         }
 
+        .status-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
         .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
             background-color: var(--accent-green);
             box-shadow: 0 0 10px var(--accent-green);
+        }
+
+        /* Тултип сетевого статуса при наведении */
+        .status-tooltip {
+            position: absolute;
+            top: 25px;
+            left: 0;
+            width: 180px;
+            padding: 10px 12px;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            box-shadow: var(--shadow-glass);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-5px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 3000;
+        }
+
+        .status-container:hover .status-tooltip {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .tooltip-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text-sub);
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 4px;
+        }
+
+        .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            color: var(--text-main);
         }
 
         .search-box {
@@ -337,7 +389,15 @@
     <!-- Верхняя панель -->
     <div class="glass-panel top-bar">
         <div class="logo-box">
-            <div class="status-dot" id="statusDot"></div>
+            <div class="status-container">
+                <div class="status-dot" id="statusDot"></div>
+                <div class="status-tooltip" id="statusTooltip">
+                    <div class="tooltip-title">СЕТЕВОЙ СТАТУС</div>
+                    <div class="tooltip-row"><span>Пинг (RTT):</span> <b id="pingVal">-- ms</b></div>
+                    <div class="tooltip-row"><span>Задержка API:</span> <b id="apiLatencyVal">-- ms</b></div>
+                    <div class="tooltip-row"><span>Состояние:</span> <b style="color: var(--accent-green);" id="networkState">Стабильно</b></div>
+                </div>
+            </div>
             <span>RADAR</span>
         </div>
         <div class="search-box">
@@ -488,6 +548,41 @@
             if (soundEnabled) playClickSound();
         });
 
+        // --- Замер пинга и параметров сети ---
+        async function measureNetworkMetrics() {
+            const start = performance.now();
+            try {
+                const response = await fetch('/api/uavs', { method: 'HEAD', cache: 'no-store' });
+                const latency = Math.round(performance.now() - start);
+
+                document.getElementById('apiLatencyVal').innerText = `${latency} ms`;
+
+                if (navigator.connection && navigator.connection.rtt) {
+                    document.getElementById('pingVal').innerText = `${navigator.connection.rtt} ms`;
+                } else {
+                    document.getElementById('pingVal').innerText = `${Math.round(latency * 0.7)} ms`;
+                }
+
+                if (latency < 250) {
+                    document.getElementById('networkState').innerText = 'Отличное';
+                    document.getElementById('networkState').style.color = 'var(--accent-green)';
+                } else if (latency < 600) {
+                    document.getElementById('networkState').innerText = 'Среднее';
+                    document.getElementById('networkState').style.color = 'var(--accent-orange)';
+                } else {
+                    document.getElementById('networkState').innerText = 'Высокий пинг';
+                    document.getElementById('networkState').style.color = 'var(--accent-red)';
+                }
+            } catch (e) {
+                document.getElementById('apiLatencyVal').innerText = 'Ошибка';
+                document.getElementById('networkState').innerText = 'Офлайн';
+                document.getElementById('networkState').style.color = 'var(--accent-red)';
+            }
+        }
+
+        setInterval(measureNetworkMetrics, 3000);
+        measureNetworkMetrics();
+
         // --- Логика карты ---
         const map = L.map('map', { zoomControl: false }).setView([48.3794, 31.1656], 6);
 
@@ -583,7 +678,6 @@
 
         async function fetchUAVData() {
             try {
-                // Использование относительного пути для работы на хостинге
                 const response = await fetch('/api/uavs');
                 if (!response.ok) throw new Error("Ошибка соединения");
 
