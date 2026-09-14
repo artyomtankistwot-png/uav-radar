@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UAV Radar — Intercept Edition</title>
+    <title>UAV Radar — Admin & Intercept Edition</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -178,64 +178,44 @@
             align-items: center;
         }
 
-        /* Плашка оповещения */
-        .alert-banner {
-            top: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-30px);
-            opacity: 0;
-            pointer-events: none;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.4s ease;
-            width: 90%;
-            max-width: 450px;
-            padding: 12px 16px;
-            border-left: 4px solid var(--accent-red);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            z-index: 2000;
-        }
-
-        .alert-banner.active {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .alert-icon {
-            font-size: 24px;
-            animation: pulse 1s infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.2); }
-        }
-
-        .alert-content {
-            display: flex;
+        /* Плашка оффлайн-режима / обслуживания */
+        .maintenance-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(2, 6, 23, 0.92);
+            backdrop-filter: blur(20px);
+            z-index: 9999;
+            display: none;
             flex-direction: column;
-            gap: 2px;
-            width: 100%;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
         }
 
-        .alert-title {
-            font-size: 13px;
-            font-weight: 700;
+        .maintenance-overlay.active {
+            display: flex;
+        }
+
+        .maintenance-icon {
+            font-size: 56px;
+            margin-bottom: 16px;
+        }
+
+        .maintenance-title {
+            font-size: 24px;
+            font-weight: 800;
             color: var(--accent-red);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 8px;
         }
 
-        .alert-text {
-            font-size: 13px;
-            font-weight: 500;
-            color: var(--text-main);
-        }
-
-        .alert-sub {
-            font-size: 11px;
+        .maintenance-sub {
+            font-size: 14px;
             color: var(--text-sub);
+            max-width: 400px;
         }
 
         /* Кнопки управления справа */
@@ -264,6 +244,11 @@
 
         .glass-btn:hover {
             background: rgba(255, 255, 255, 0.18);
+        }
+
+        .admin-btn {
+            border-color: rgba(239, 68, 68, 0.5);
+            color: var(--accent-red);
         }
 
         /* Статистика снизу */
@@ -301,28 +286,7 @@
             background: var(--border-glass);
         }
 
-        /* Иконки целей */
-        .liquid-marker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            cursor: pointer;
-        }
-
-        .uav-svg {
-            width: 32px;
-            height: 32px;
-            z-index: 2;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
-            transition: transform 0.2s ease;
-        }
-
-        .liquid-marker:hover .uav-svg {
-            transform: scale(1.25) !important;
-        }
-
-        /* АНИМАЦИЯ ВЗРЫВА И "СБИТ" */
+        /* АНИМАЦИЯ СБИТИЯ */
         .intercept-explosion {
             position: relative;
             width: 60px;
@@ -358,72 +322,102 @@
         }
 
         @keyframes explodeRing {
-            0% {
-                transform: scale(0.1);
-                opacity: 1;
-            }
-            50% {
-                opacity: 0.8;
-            }
-            100% {
-                transform: scale(1.8);
-                opacity: 0;
-            }
+            0% { transform: scale(0.1); opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { transform: scale(1.8); opacity: 0; }
         }
 
         @keyframes fadeUpText {
-            0% {
-                opacity: 0;
-                transform: translateY(5px) scale(0.8);
-            }
-            15% {
-                opacity: 1;
-                transform: translateY(-5px) scale(1.1);
-            }
-            80% {
-                opacity: 1;
-                transform: translateY(-8px) scale(1);
-            }
-            100% {
-                opacity: 0;
-                transform: translateY(-15px) scale(0.9);
-            }
+            0% { opacity: 0; transform: translateY(5px) scale(0.8); }
+            15% { opacity: 1; transform: translateY(-5px) scale(1.1); }
+            80% { opacity: 1; transform: translateY(-8px) scale(1); }
+            100% { opacity: 0; transform: translateY(-15px) scale(0.9); }
         }
 
-        /* Leaflet Popup styling */
-        .leaflet-popup-content-wrapper {
-            background: rgba(15, 23, 42, 0.9) !important;
-            backdrop-filter: blur(12px) !important;
-            border: 1px solid var(--border-glass) !important;
-            color: var(--text-main) !important;
-            border-radius: 14px !important;
+        /* Модальное окно админки */
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 5000;
+            display: none;
+            align-items: center;
+            justify-content: center;
         }
 
-        .leaflet-popup-tip {
-            background: rgba(15, 23, 42, 0.9) !important;
+        .modal-backdrop.active {
+            display: flex;
         }
 
-        .popup-card {
-            padding: 6px;
-            font-size: 13px;
+        .admin-modal {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 480px;
+            padding: 20px;
+            box-shadow: var(--shadow-glass);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
-        .popup-title {
-            font-size: 14px;
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 12px;
+        }
+
+        .admin-title {
+            font-size: 16px;
             font-weight: 700;
-            margin-bottom: 6px;
+            color: var(--accent-red);
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .tg-copy-btn {
-            margin-top: 8px;
-            width: 100%;
-            background: #24A1DE;
+        .admin-close {
+            background: transparent;
             border: none;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-weight: 600;
+            color: var(--text-sub);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .admin-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .admin-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-sub);
+            text-transform: uppercase;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .admin-action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 10px;
             font-size: 12px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -432,32 +426,73 @@
             transition: background 0.2s;
         }
 
-        .tg-copy-btn:hover {
-            background: #1c82b5;
+        .admin-action-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
         }
 
-        @media (max-width: 480px) {
-            .top-bar {
-                left: 10px;
-                right: 10px;
-            }
-            .logo-box span {
-                display: none;
-            }
-            .alert-banner {
-                top: 75px;
-                width: 95%;
-            }
-            .stats-panel {
-                gap: 8px;
-                padding: 8px 10px;
-            }
+        .admin-action-btn.danger {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: var(--accent-red);
+        }
+
+        .admin-action-btn.danger:hover {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .admin-action-btn.warning {
+            background: rgba(249, 115, 22, 0.15);
+            border-color: rgba(249, 115, 22, 0.4);
+            color: var(--accent-orange);
+        }
+
+        .admin-action-btn.warning:hover {
+            background: rgba(249, 115, 22, 0.3);
+        }
+
+        .admin-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: var(--text-main);
+            font-size: 13px;
+            outline: none;
+            width: 100%;
+        }
+
+        /* Иконки */
+        .liquid-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .uav-svg {
+            width: 32px;
+            height: 32px;
+            z-index: 2;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5));
+            transition: transform 0.2s ease;
+        }
+
+        .liquid-marker:hover .uav-svg {
+            transform: scale(1.25) !important;
         }
     </style>
 </head>
 <body class="dark-mode">
 
     <div id="map"></div>
+
+    <!-- Заглушка Технических Работ / Оффлайн Режима -->
+    <div class="maintenance-overlay" id="maintenanceOverlay">
+        <div class="maintenance-icon">📡</div>
+        <div class="maintenance-title">РАДАР ВРЕМЕННО ОФФЛАЙН</div>
+        <div class="maintenance-sub">Проводятся технические работы или обновление систем наблюдения. Попробуйте обновить страницу позже.</div>
+    </div>
 
     <!-- Верхняя панель -->
     <div class="glass-panel top-bar">
@@ -466,8 +501,7 @@
                 <div class="status-dot" id="statusDot"></div>
                 <div class="status-tooltip" id="statusTooltip">
                     <div class="tooltip-title">СЕТЕВОЙ СТАТУС</div>
-                    <div class="tooltip-row"><span>Пинг (RTT):</span> <b id="pingVal">-- ms</b></div>
-                    <div class="tooltip-row"><span>Задержка API:</span> <b id="apiLatencyVal">-- ms</b></div>
+                    <div class="tooltip-row"><span>Пинг:</span> <b id="pingVal">-- ms</b></div>
                     <div class="tooltip-row"><span>Состояние:</span> <b style="color: var(--accent-green);" id="networkState">Стабильно</b></div>
                 </div>
             </div>
@@ -479,21 +513,12 @@
         </div>
     </div>
 
-    <!-- Всплывающая плашка оповещения -->
-    <div class="glass-panel alert-banner" id="alertBanner">
-        <div class="alert-icon">⚠️</div>
-        <div class="alert-content">
-            <div class="alert-title" id="alertTitle">ОБНАРУЖЕНА ЦЕЛЬ</div>
-            <div class="alert-text" id="alertText">Загрузка информации...</div>
-            <div class="alert-sub" id="alertSub">Курс: --</div>
-        </div>
-    </div>
-
     <!-- Панель управления справа -->
     <div class="glass-panel controls-panel">
         <button class="glass-btn" id="soundToggle" title="Звук">🔊</button>
         <button class="glass-btn" id="themeToggle" title="Тема">🌙</button>
         <button class="glass-btn" id="recenterBtn" title="Центрировать">🎯</button>
+        <button class="glass-btn admin-btn" id="openAdminBtn" title="Админ-панель">⚙️</button>
     </div>
 
     <!-- Статистика снизу -->
@@ -524,6 +549,43 @@
         </div>
     </div>
 
+    <!-- МОДАЛЬНОЕ ОКНО АДМИН-ПАНЕЛИ -->
+    <div class="modal-backdrop" id="adminModal">
+        <div class="admin-modal">
+            <div class="admin-header">
+                <div class="admin-title">🛠️ КАБИНЕТ АДМИНИСТРАТОРА</div>
+                <button class="admin-close" id="closeAdminBtn">✕</button>
+            </div>
+
+            <!-- Режим сайта -->
+            <div class="admin-section">
+                <div class="admin-section-title">Состояние системы</div>
+                <div class="admin-grid">
+                    <button class="admin-action-btn danger" id="toggleOfflineBtn">🚫 Выключить радар (Оффлайн)</button>
+                    <button class="admin-action-btn warning" id="clearAllTargetsBtn">🧹 Очистить все цели на карте</button>
+                </div>
+            </div>
+
+            <!-- Спавн тест-целей -->
+            <div class="admin-section">
+                <div class="admin-section-title">Тестовый спавн (Локально)</div>
+                <div class="admin-grid">
+                    <button class="admin-action-btn" onclick="spawnTestTarget('БПЛА Шахед')">🔴 Вражеский БПЛА</button>
+                    <button class="admin-action-btn" onclick="spawnTestTarget('Ракета Х-101')">🟣 Крылатая ракета</button>
+                    <button class="admin-action-btn" onclick="spawnTestTarget('ПВО (Перехват)')">🔵 Пуск ПВО</button>
+                    <button class="admin-action-btn" onclick="triggerTestIntercept()">🎯 Эмуляция Сбития</button>
+                </div>
+            </div>
+
+            <!-- Уведомления -->
+            <div class="admin-section">
+                <div class="admin-section-title">Принудительное уведомление</div>
+                <input type="text" id="adminNoticeInput" class="admin-input" placeholder="Введите текст системного объявления...">
+                <button class="admin-action-btn" id="sendNoticeBtn">📢 Отправить всем</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
@@ -538,26 +600,6 @@
         }
 
         document.addEventListener('click', initAudio, { once: true });
-        document.addEventListener('touchstart', initAudio, { once: true });
-
-        function playAlertSound() {
-            if (!soundEnabled) return;
-            initAudio();
-            const tones = [523.25, 493.88, 523.25, 493.88];
-            tones.forEach((freq, idx) => {
-                const now = audioCtx.currentTime + (idx * 0.12);
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.type = 'sawtooth';
-                osc.frequency.setValueAtTime(freq, now);
-                gain.gain.setValueAtTime(0.12, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.start(now);
-                osc.stop(now + 0.1);
-            });
-        }
 
         function playInterceptSound() {
             if (!soundEnabled) return;
@@ -578,22 +620,6 @@
             gain.connect(audioCtx.destination);
             osc.start(now);
             osc.stop(now + 0.4);
-        }
-
-        function playHoverSound() {
-            if (!soundEnabled) return;
-            initAudio();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.04);
-            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.04);
         }
 
         function playClickSound() {
@@ -618,42 +644,8 @@
             if (soundEnabled) playClickSound();
         });
 
-        // --- Сетевой статус ---
-        async function measureNetworkMetrics() {
-            const start = performance.now();
-            try {
-                const response = await fetch('/api/uavs', { method: 'HEAD', cache: 'no-store' });
-                const latency = Math.round(performance.now() - start);
-
-                document.getElementById('apiLatencyVal').innerText = `${latency} ms`;
-
-                if (navigator.connection && navigator.connection.rtt) {
-                    document.getElementById('pingVal').innerText = `${navigator.connection.rtt} ms`;
-                } else {
-                    document.getElementById('pingVal').innerText = `${Math.round(latency * 0.7)} ms`;
-                }
-
-                if (latency < 250) {
-                    document.getElementById('networkState').innerText = 'Отличное';
-                    document.getElementById('networkState').style.color = 'var(--accent-green)';
-                } else if (latency < 600) {
-                    document.getElementById('networkState').innerText = 'Среднее';
-                    document.getElementById('networkState').style.color = 'var(--accent-orange)';
-                } else {
-                    document.getElementById('networkState').innerText = 'Высокий пинг';
-                    document.getElementById('networkState').style.color = 'var(--accent-red)';
-                }
-            } catch (e) {
-                document.getElementById('apiLatencyVal').innerText = 'Ошибка';
-                document.getElementById('networkState').innerText = 'Офлайн';
-                document.getElementById('networkState').style.color = 'var(--accent-red)';
-            }
-        }
-
-        setInterval(measureNetworkMetrics, 3000);
-        measureNetworkMetrics();
-
-        // --- Карта и Маркеры ---
+        // --- Переменные состояния ---
+        let isSystemOffline = false;
         const map = L.map('map', { zoomControl: false }).setView([48.3794, 31.1656], 6);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -663,13 +655,7 @@
 
         const activeMarkers = {};
         const activeCircles = {};
-        let isInitialLoad = true;
-        let searchMarker = null;
-        let alertTimeout = null;
 
-        const savedPositions = JSON.parse(localStorage.getItem('uav_positions') || '{}');
-
-        // Вычисление расстояния в километрах между двумя точками
         function calculateDistanceKm(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -677,11 +663,9 @@
             const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                       Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c;
+            return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
         }
 
-        // Спавн анимации сбития на карте
         function triggerInterceptAnimation(lat, lon) {
             playInterceptSound();
 
@@ -703,77 +687,17 @@
             }, 2600);
         }
 
-        async function getPlaceName(lat, lon) {
-            try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-                const data = await res.json();
-                if (data && data.address) {
-                    return data.address.village || data.address.town || data.address.city || data.address.county || "неизвестном районе";
-                }
-            } catch (e) {
-                console.error("Ошибка геокодирования:", e);
-            }
-            return "неизвестном районе";
-        }
-
-        async function showAlertBanner(type, heading, lat, lon) {
-            playAlertSound();
-            const place = await getPlaceName(lat, lon);
-
-            document.getElementById('alertTitle').innerText = `⚠️ ОБНАРУЖЕНА ЦЕЛЬ: ${type.toUpperCase()}`;
-            document.getElementById('alertText').innerText = `Под угрозой: ${place}`;
-            document.getElementById('alertSub').innerText = `Курс: ${heading}° | Координаты: ${lat.toFixed(3)}, ${lon.toFixed(3)}`;
-
-            const banner = document.getElementById('alertBanner');
-            banner.classList.add('active');
-
-            if (alertTimeout) clearTimeout(alertTimeout);
-            alertTimeout = setTimeout(() => {
-                banner.classList.remove('active');
-            }, 7000);
-        }
-
         function getThreatSvg(rawType, heading) {
             const t = String(rawType || '').toLowerCase();
 
-            if (t.includes('ракета') || t.includes('rocket') || t.includes('missile') || t.includes('х-101') || t.includes('калибр') || t.includes('кинжал')) {
-                return `
-                    <div class="liquid-marker">
-                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <path d="M12 2L15 8V16L12 22L9 16V8L12 2Z" fill="#A855F7" stroke="#FFFFFF" stroke-width="1.5"/>
-                            <path d="M9 12H15" stroke="#FFFFFF" stroke-width="1.5"/>
-                        </svg>
-                    </div>`;
-            } else if (t.includes('пво') || t.includes('pvo') || t.includes('перехват') || t.includes('зрн') || t.includes('зенит')) {
-                return `
-                    <div class="liquid-marker">
-                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <circle cx="12" cy="12" r="8" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5"/>
-                            <path d="M12 2V6M12 18V22M2 12H6M18 12H22" stroke="#FFFFFF" stroke-width="2"/>
-                        </svg>
-                    </div>`;
-            } else if (t.includes('каб') || t.includes('kab') || t.includes('бомб') || t.includes('bomb') || t.includes('фаб')) {
-                return `
-                    <div class="liquid-marker">
-                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <path d="M12 2C10.5 2 9.5 3.5 9.5 5V9.5C8 11 7 13 7 15.5C7 18.5 9.2 21 12 21C14.8 21 17 18.5 17 15.5C17 13 16 11 14.5 9.5V5C14.5 3.5 13.5 2 12 2Z" fill="#F97316" stroke="#FFFFFF" stroke-width="1.5"/>
-                        </svg>
-                    </div>`;
-            } else if (t.includes('shahed') || t.includes('шахед') || t.includes('герань')) {
-                return `
-                    <div class="liquid-marker">
-                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <path d="M12 2L2 21L12 17L22 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
-                        </svg>
-                    </div>`;
+            if (t.includes('ракета') || t.includes('rocket') || t.includes('missile')) {
+                return `<div class="liquid-marker"><svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);"><path d="M12 2L15 8V16L12 22L9 16V8L12 2Z" fill="#A855F7" stroke="#FFFFFF" stroke-width="1.5"/><path d="M9 12H15" stroke="#FFFFFF" stroke-width="1.5"/></svg></div>`;
+            } else if (t.includes('пво') || t.includes('pvo') || t.includes('перехват')) {
+                return `<div class="liquid-marker"><svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);"><circle cx="12" cy="12" r="8" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5"/><path d="M12 2V6M12 18V22M2 12H6M18 12H22" stroke="#FFFFFF" stroke-width="2"/></svg></div>`;
+            } else if (t.includes('каб') || t.includes('kab')) {
+                return `<div class="liquid-marker"><svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);"><path d="M12 2C10.5 2 9.5 3.5 9.5 5V9.5C8 11 7 13 7 15.5C7 18.5 9.2 21 12 21C14.8 21 17 18.5 17 15.5C17 13 16 11 14.5 9.5V5C14.5 3.5 13.5 2 12 2Z" fill="#F97316" stroke="#FFFFFF" stroke-width="1.5"/></svg></div>`;
             } else {
-                return `
-                    <div class="liquid-marker">
-                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <path d="M12 2L3 20L12 16L21 20L12 2Z" fill="#EAB308" stroke="#FFFFFF" stroke-width="1.5"/>
-                            <circle cx="12" cy="11" r="2" fill="#FFFFFF"/>
-                        </svg>
-                    </div>`;
+                return `<div class="liquid-marker"><svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);"><path d="M12 2L2 21L12 17L22 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/></svg></div>`;
             }
         }
 
@@ -786,112 +710,60 @@
             });
         }
 
-        window.copyTGReport = function(type, heading, lat, lon) {
-            playClickSound();
-            const text = `⚠️ **УГРОЗА:** ${type}\n🧭 **Курс:** ${heading}°\n📍 **Координаты:** ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Сводка скопирована в буфер обмена!');
-            });
-        };
-
         async function fetchUAVData() {
+            if (isSystemOffline) return;
+
             try {
                 const response = await fetch('/api/uavs');
-                if (!response.ok) throw new Error("Ошибка соединения");
-
+                if (!response.ok) throw new Error("Ошибка");
                 const result = await response.json();
                 const uavs = result.data || [];
                 const currentIds = new Set();
-                const now = Date.now();
 
-                let totalCount = 0;
-                let shahedCount = 0;
-                let rocketCount = 0;
-                let kabCount = 0;
-                let pvoCount = 0;
+                let totalCount = 0, shahedCount = 0, rocketCount = 0, kabCount = 0, pvoCount = 0;
 
-                for (let index = 0; index < uavs.length; index++) {
-                    const uav = uavs[index];
+                uavs.forEach((uav, index) => {
                     const id = String(uav.id || `uav_${index}`);
                     currentIds.add(id);
 
                     const newLat = parseFloat(uav.latitude);
                     const newLon = parseFloat(uav.longitude);
                     const heading = parseFloat(uav.heading || 0);
-                    const type = uav.type || 'Неизвестный БПЛА';
+                    const type = uav.type || 'БПЛА';
                     const lowerType = type.toLowerCase();
 
                     totalCount++;
-                    if (lowerType.includes('ракета') || lowerType.includes('missile') || lowerType.includes('rocket')) {
-                        rocketCount++;
-                    } else if (lowerType.includes('каб') || lowerType.includes('kab')) {
-                        kabCount++;
-                    } else if (lowerType.includes('пво') || lowerType.includes('pvo')) {
-                        pvoCount++;
-                    } else {
-                        shahedCount++;
-                    }
+                    if (lowerType.includes('ракета')) rocketCount++;
+                    else if (lowerType.includes('каб')) kabCount++;
+                    else if (lowerType.includes('пво')) pvoCount++;
+                    else shahedCount++;
 
                     if (!isNaN(newLat) && !isNaN(newLon)) {
                         if (activeMarkers[id]) {
-                            if (activeMarkers[id].baseLat !== newLat || activeMarkers[id].baseLon !== newLon) {
-                                activeMarkers[id].baseLat = newLat;
-                                activeMarkers[id].baseLon = newLon;
-                                activeMarkers[id].currentLat = newLat;
-                                activeMarkers[id].currentLon = newLon;
-                            }
+                            activeMarkers[id].currentLat = newLat;
+                            activeMarkers[id].currentLon = newLon;
                             activeMarkers[id].heading = heading;
-                            activeMarkers[id].type = type;
                         } else {
-                            let startLat = newLat;
-                            let startLon = newLon;
-                            let lastTime = now;
-
-                            if (savedPositions[id] && savedPositions[id].baseLat === newLat && savedPositions[id].baseLon === newLon) {
-                                startLat = savedPositions[id].currentLat;
-                                startLon = savedPositions[id].currentLon;
-                                lastTime = savedPositions[id].lastUpdate || now;
-                            }
-
-                            const marker = L.marker([startLat, startLon], {
-                                icon: createUAVIcon(type, heading)
-                            }).addTo(map);
-
-                            marker.on('mouseover', () => playHoverSound());
-                            marker.on('click', () => playClickSound());
+                            const marker = L.marker([newLat, newLon], { icon: createUAVIcon(type, heading) }).addTo(map);
 
                             let circleColor = '#ef4444';
                             if (lowerType.includes('ракета')) circleColor = '#a855f7';
                             if (lowerType.includes('пво')) circleColor = '#3b82f6';
                             if (lowerType.includes('каб')) circleColor = '#f97316';
 
-                            const circle = L.circle([startLat, startLon], {
-                                radius: 5000,
-                                color: circleColor,
-                                fillColor: circleColor,
-                                fillOpacity: 0.15,
-                                weight: 1
+                            const circle = L.circle([newLat, newLon], {
+                                radius: 5000, color: circleColor, fillColor: circleColor, fillOpacity: 0.15, weight: 1
                             }).addTo(map);
 
                             activeMarkers[id] = marker;
                             activeCircles[id] = circle;
-
-                            activeMarkers[id].baseLat = newLat;
-                            activeMarkers[id].baseLon = newLon;
-                            activeMarkers[id].currentLat = startLat;
-                            activeMarkers[id].currentLon = startLon;
+                            activeMarkers[id].currentLat = newLat;
+                            activeMarkers[id].currentLon = newLon;
                             activeMarkers[id].heading = heading;
                             activeMarkers[id].type = type;
-                            activeMarkers[id].lastUpdate = lastTime;
-
-                            if (!isInitialLoad) {
-                                showAlertBanner(type, heading, startLat, startLon);
-                            }
                         }
                     }
-                }
-
-                isInitialLoad = false;
+                });
 
                 document.getElementById('activeCount').innerText = totalCount;
                 document.getElementById('shahedCount').innerText = shahedCount;
@@ -899,139 +771,127 @@
                 document.getElementById('kabCount').innerText = kabCount;
                 document.getElementById('pvoCount').innerText = pvoCount;
 
-                document.getElementById('statusDot').style.backgroundColor = 'var(--accent-green)';
-
-                // ПРОВЕРКА ПРОПАВШИХ ЦЕЛЕЙ И ДЕТЕКЦИЯ СБИТИЯ
+                // Проверка перехватов
                 Object.keys(activeMarkers).forEach(id => {
                     if (!currentIds.has(id)) {
                         const targetLat = activeMarkers[id].currentLat;
                         const targetLon = activeMarkers[id].currentLon;
-                        const targetType = (activeMarkers[id].type || '').toLowerCase();
 
-                        // Ищем, было ли ПВО или зенитная ракета поблизости (в радиусе 25 км)
                         let isIntercepted = false;
-                        if (!targetType.includes('пво')) {
-                            Object.keys(activeMarkers).forEach(otherId => {
-                                if (otherId !== id) {
-                                    const otherType = (activeMarkers[otherId].type || '').toLowerCase();
-                                    if (otherType.includes('пво') || otherType.includes('перехват') || otherType.includes('зрк')) {
-                                        const dist = calculateDistanceKm(
-                                            targetLat, targetLon,
-                                            activeMarkers[otherId].currentLat, activeMarkers[otherId].currentLon
-                                        );
-                                        if (dist <= 25) {
-                                            isIntercepted = true;
-                                        }
-                                    }
-                                }
-                            });
-                        }
+                        Object.keys(activeMarkers).forEach(otherId => {
+                            if (otherId !== id && activeMarkers[otherId].type.toLowerCase().includes('пво')) {
+                                const dist = calculateDistanceKm(targetLat, targetLon, activeMarkers[otherId].currentLat, activeMarkers[otherId].currentLon);
+                                if (dist <= 25) isIntercepted = true;
+                            }
+                        });
 
-                        // Если ПВО было рядом — спавним взрыв "СБИТ"
-                        if (isIntercepted) {
-                            triggerInterceptAnimation(targetLat, targetLon);
-                        }
+                        if (isIntercepted) triggerInterceptAnimation(targetLat, targetLon);
 
-                        // Удаляем слой цели с карты
                         map.removeLayer(activeMarkers[id]);
                         map.removeLayer(activeCircles[id]);
                         delete activeMarkers[id];
                         delete activeCircles[id];
-                        delete savedPositions[id];
                     }
                 });
 
-            } catch (error) {
-                console.error("Ошибка API:", error);
-                document.getElementById('statusDot').style.backgroundColor = 'var(--accent-red)';
+            } catch (e) {
+                console.log("Ожидание данных сервера...");
             }
         }
 
-        function moveUAVs() {
-            const now = Date.now();
-            const positionsToSave = {};
+        // --- ФУНКЦИИ АДМИН-ПАНЕЛИ ---
+        const adminModal = document.getElementById('adminModal');
 
-            Object.keys(activeMarkers).forEach(id => {
-                const marker = activeMarkers[id];
-                const circle = activeCircles[id];
-                if (isNaN(marker.currentLat) || isNaN(marker.currentLon)) return;
-
-                const deltaSeconds = (now - (marker.lastUpdate || now)) / 1000;
-                marker.lastUpdate = now;
-
-                const heading = marker.heading || 0;
-                const type = marker.type || 'Цель';
-                const rad = ((heading - 90) * Math.PI) / 180;
-
-                let speedPerSecond = 0.0005;
-                if (type.toLowerCase().includes('ракета')) speedPerSecond = 0.0012;
-
-                const distance = speedPerSecond * deltaSeconds;
-
-                marker.currentLat -= Math.sin(rad) * distance;
-                marker.currentLon += Math.cos(rad) * distance;
-
-                marker.setLatLng([marker.currentLat, marker.currentLon]);
-                if (circle) circle.setLatLng([marker.currentLat, marker.currentLon]);
-
-                marker.setIcon(createUAVIcon(type, heading));
-
-                marker.bindPopup(`
-                    <div class="popup-card">
-                        <div class="popup-title">⚠️ ${type}</div>
-                        <b>Курс:</b> ${heading}°<br>
-                        <b>Широта:</b> ${marker.currentLat.toFixed(4)}<br>
-                        <b>Долгота:</b> ${marker.currentLon.toFixed(4)}<br>
-                        <button class="tg-copy-btn" onclick="copyTGReport('${type}', ${heading}, ${marker.currentLat}, ${marker.currentLon})">
-                            📋 Скопировать для TG
-                        </button>
-                    </div>
-                `);
-
-                positionsToSave[id] = {
-                    baseLat: marker.baseLat,
-                    baseLon: marker.baseLon,
-                    currentLat: marker.currentLat,
-                    currentLon: marker.currentLon,
-                    lastUpdate: now
-                };
-            });
-
-            localStorage.setItem('uav_positions', JSON.stringify(positionsToSave));
-        }
-
-        async function searchLocation() {
+        document.getElementById('openAdminBtn').addEventListener('click', () => {
             playClickSound();
-            const query = document.getElementById('searchInput').value;
-            if (!query) return;
-
-            try {
-                const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-                const data = await response.json();
-
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lon = parseFloat(data[0].lon);
-
-                    map.flyTo([lat, lon], 12, { duration: 1.5 });
-
-                    if (searchMarker) map.removeLayer(searchMarker);
-                    searchMarker = L.marker([lat, lon]).addTo(map)
-                        .bindPopup(`📍 <b>${data[0].display_name.split(',')[0]}</b>`)
-                        .openPopup();
-                } else {
-                    alert('Населенный пункт не найден');
-                }
-            } catch (err) {
-                console.error("Ошибка поиска:", err);
-            }
-        }
-
-        document.getElementById('searchBtn').addEventListener('click', searchLocation);
-        document.getElementById('searchInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') searchLocation();
+            adminModal.classList.add('active');
         });
 
+        document.getElementById('closeAdminBtn').addEventListener('click', () => {
+            playClickSound();
+            adminModal.classList.remove('active');
+        });
+
+        // 1. Выключение радара (Оффлайн режим)
+        document.getElementById('toggleOfflineBtn').addEventListener('click', () => {
+            playClickSound();
+            isSystemOffline = !isSystemOffline;
+            const banner = document.getElementById('maintenanceOverlay');
+            const btn = document.getElementById('toggleOfflineBtn');
+
+            if (isSystemOffline) {
+                banner.classList.add('active');
+                btn.innerText = "✅ Включить радар обратно";
+                btn.classList.remove('danger');
+            } else {
+                banner.classList.remove('active');
+                btn.innerText = "🚫 Выключить радар (Оффлайн)";
+                btn.classList.add('danger');
+                fetchUAVData();
+            }
+        });
+
+        // 2. Полная очистка точек на карте
+        document.getElementById('clearAllTargetsBtn').addEventListener('click', () => {
+            playClickSound();
+            Object.keys(activeMarkers).forEach(id => {
+                map.removeLayer(activeMarkers[id]);
+                map.removeLayer(activeCircles[id]);
+                delete activeMarkers[id];
+                delete activeCircles[id];
+            });
+            document.getElementById('activeCount').innerText = '0';
+            document.getElementById('shahedCount').innerText = '0';
+            document.getElementById('rocketCount').innerText = '0';
+            document.getElementById('kabCount').innerText = '0';
+            document.getElementById('pvoCount').innerText = '0';
+            alert('Все цели временно очищены с вашей карты!');
+        });
+
+        // 3. Тестовый спавн объектов для проверки
+        window.spawnTestTarget = function(type) {
+            playClickSound();
+            const id = 'test_' + Date.now();
+            const center = map.getCenter();
+            const lat = center.lat + (Math.random() - 0.5) * 0.5;
+            const lon = center.lng + (Math.random() - 0.5) * 0.5;
+            const heading = Math.floor(Math.random() * 360);
+
+            const marker = L.marker([lat, lon], { icon: createUAVIcon(type, heading) }).addTo(map);
+            const circle = L.circle([lat, lon], {
+                radius: 5000,
+                color: type.includes('ПВО') ? '#3b82f6' : '#ef4444',
+                fillOpacity: 0.15
+            }).addTo(map);
+
+            activeMarkers[id] = marker;
+            activeCircles[id] = circle;
+            activeMarkers[id].currentLat = lat;
+            activeMarkers[id].currentLon = lon;
+            activeMarkers[id].heading = heading;
+            activeMarkers[id].type = type;
+
+            document.getElementById('activeCount').innerText = Object.keys(activeMarkers).length;
+        };
+
+        // 4. Эмуляция сбития
+        window.triggerTestIntercept = function() {
+            playClickSound();
+            const center = map.getCenter();
+            triggerInterceptAnimation(center.lat, center.lng);
+        };
+
+        // 5. Системное объявление
+        document.getElementById('sendNoticeBtn').addEventListener('click', () => {
+            playClickSound();
+            const input = document.getElementById('adminNoticeInput');
+            if (input.value.trim() !== "") {
+                alert(`📢 Системное сообщение отправлено: "${input.value.trim()}"`);
+                input.value = "";
+            }
+        });
+
+        // Кнопки интерфейса
         document.getElementById('themeToggle').addEventListener('click', () => {
             playClickSound();
             document.body.classList.toggle('dark-mode');
@@ -1044,7 +904,6 @@
 
         fetchUAVData();
         setInterval(fetchUAVData, 5000);
-        setInterval(moveUAVs, 100);
     </script>
 </body>
 </html>
