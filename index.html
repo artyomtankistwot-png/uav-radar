@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>UAV Radar — Tactical Glass Edition</title>
+    <title>UAV Radar — Intercept Edition</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
         :root {
@@ -17,6 +17,9 @@
             --text-sub: #94a3b8;
             --accent-red: #ef4444;
             --accent-orange: #f97316;
+            --accent-purple: #a855f7;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #eab308;
             --accent-green: #22c55e;
             --tile-filter: brightness(0.9) contrast(1.1);
         }
@@ -64,7 +67,7 @@
             position: absolute;
         }
 
-        /* Верхняя панель: Шапка и Поиск */
+        /* Верхняя панель */
         .top-bar {
             top: 16px;
             left: 16px;
@@ -101,7 +104,6 @@
             box-shadow: 0 0 10px var(--accent-green);
         }
 
-        /* Тултип сетевого статуса при наведении */
         .status-tooltip {
             position: absolute;
             top: 25px;
@@ -176,7 +178,7 @@
             align-items: center;
         }
 
-        /* Всплывающая плашка оповещения */
+        /* Плашка оповещения */
         .alert-banner {
             top: 80px;
             left: 50%;
@@ -269,9 +271,9 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 10px 20px;
+            padding: 10px 16px;
             display: flex;
-            gap: 20px;
+            gap: 14px;
             align-items: center;
         }
 
@@ -282,13 +284,13 @@
         }
 
         .stat-value {
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 700;
             color: var(--accent-red);
         }
 
         .stat-label {
-            font-size: 10px;
+            font-size: 9px;
             color: var(--text-sub);
             text-transform: uppercase;
         }
@@ -320,6 +322,74 @@
             transform: scale(1.25) !important;
         }
 
+        /* АНИМАЦИЯ ВЗРЫВА И "СБИТ" */
+        .intercept-explosion {
+            position: relative;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .explosion-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid var(--accent-green);
+            background: rgba(34, 197, 94, 0.25);
+            animation: explodeRing 1.2s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+
+        .intercept-label {
+            position: absolute;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #ffffff;
+            background: var(--accent-green);
+            padding: 2px 6px;
+            border-radius: 6px;
+            box-shadow: 0 0 12px var(--accent-green);
+            animation: fadeUpText 2.5s ease-out forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes explodeRing {
+            0% {
+                transform: scale(0.1);
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        @keyframes fadeUpText {
+            0% {
+                opacity: 0;
+                transform: translateY(5px) scale(0.8);
+            }
+            15% {
+                opacity: 1;
+                transform: translateY(-5px) scale(1.1);
+            }
+            80% {
+                opacity: 1;
+                transform: translateY(-8px) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-15px) scale(0.9);
+            }
+        }
+
         /* Leaflet Popup styling */
         .leaflet-popup-content-wrapper {
             background: rgba(15, 23, 42, 0.9) !important;
@@ -341,7 +411,6 @@
         .popup-title {
             font-size: 14px;
             font-weight: 700;
-            color: var(--accent-red);
             margin-bottom: 6px;
         }
 
@@ -378,6 +447,10 @@
             .alert-banner {
                 top: 75px;
                 width: 95%;
+            }
+            .stats-panel {
+                gap: 8px;
+                padding: 8px 10px;
             }
         }
     </style>
@@ -423,34 +496,45 @@
         <button class="glass-btn" id="recenterBtn" title="Центрировать">🎯</button>
     </div>
 
-    <!-- Нижняя статистика -->
+    <!-- Статистика снизу -->
     <div class="glass-panel stats-panel">
         <div class="stat-item">
             <span class="stat-value" id="activeCount">0</span>
-            <span class="stat-label">Целей</span>
+            <span class="stat-label">Всего</span>
+        </div>
+        <div class="divider"></div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--accent-red)" id="shahedCount">0</span>
+            <span class="stat-label">БПЛА</span>
+        </div>
+        <div class="divider"></div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--accent-purple)" id="rocketCount">0</span>
+            <span class="stat-label">Ракеты</span>
         </div>
         <div class="divider"></div>
         <div class="stat-item">
             <span class="stat-value" style="color: var(--accent-orange)" id="kabCount">0</span>
             <span class="stat-label">КАБы</span>
         </div>
+        <div class="divider"></div>
+        <div class="stat-item">
+            <span class="stat-value" style="color: var(--accent-blue)" id="pvoCount">0</span>
+            <span class="stat-label">ПВО</span>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script>
-        // --- Web Audio API Синтезатор звуков ---
+        // --- Web Audio API ---
         let soundEnabled = true;
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         let audioCtx = null;
 
         function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new AudioCtx();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (!audioCtx) audioCtx = new AudioCtx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
         document.addEventListener('click', initAudio, { once: true });
@@ -459,25 +543,41 @@
         function playAlertSound() {
             if (!soundEnabled) return;
             initAudio();
-            
             const tones = [523.25, 493.88, 523.25, 493.88];
             tones.forEach((freq, idx) => {
                 const now = audioCtx.currentTime + (idx * 0.12);
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(freq, now);
-
                 gain.gain.setValueAtTime(0.12, now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
-
                 osc.start(now);
                 osc.stop(now + 0.1);
             });
+        }
+
+        function playInterceptSound() {
+            if (!soundEnabled) return;
+            initAudio();
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(900, now + 0.15);
+            osc.frequency.exponentialRampToValueAtTime(150, now + 0.35);
+
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.4);
         }
 
         function playHoverSound() {
@@ -485,17 +585,13 @@
             initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-
             osc.type = 'sine';
             osc.frequency.setValueAtTime(1400, audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.04);
-
             gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
-
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-
             osc.start();
             osc.stop(audioCtx.currentTime + 0.04);
         }
@@ -505,41 +601,15 @@
             initAudio();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(800, audioCtx.currentTime);
             osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.06);
-
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.06);
-
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-
             osc.start();
             osc.stop(audioCtx.currentTime + 0.06);
-        }
-
-        function playSearchFoundSound() {
-            if (!soundEnabled) return;
-            initAudio();
-            const now = audioCtx.currentTime;
-
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(600, now);
-            osc.frequency.setValueAtTime(1200, now + 0.08);
-
-            gain.gain.setValueAtTime(0.08, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-
-            osc.start(now);
-            osc.stop(now + 0.25);
         }
 
         document.getElementById('soundToggle').addEventListener('click', () => {
@@ -548,7 +618,7 @@
             if (soundEnabled) playClickSound();
         });
 
-        // --- Замер пинга и параметров сети ---
+        // --- Сетевой статус ---
         async function measureNetworkMetrics() {
             const start = performance.now();
             try {
@@ -583,7 +653,7 @@
         setInterval(measureNetworkMetrics, 3000);
         measureNetworkMetrics();
 
-        // --- Логика карты ---
+        // --- Карта и Маркеры ---
         const map = L.map('map', { zoomControl: false }).setView([48.3794, 31.1656], 6);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -598,6 +668,40 @@
         let alertTimeout = null;
 
         const savedPositions = JSON.parse(localStorage.getItem('uav_positions') || '{}');
+
+        // Вычисление расстояния в километрах между двумя точками
+        function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Спавн анимации сбития на карте
+        function triggerInterceptAnimation(lat, lon) {
+            playInterceptSound();
+
+            const explosionIcon = L.divIcon({
+                html: `
+                    <div class="intercept-explosion">
+                        <div class="explosion-ring"></div>
+                        <div class="intercept-label">🎯 СБИТ</div>
+                    </div>`,
+                className: '',
+                iconSize: [60, 60],
+                iconAnchor: [30, 30]
+            });
+
+            const explosionMarker = L.marker([lat, lon], { icon: explosionIcon }).addTo(map);
+
+            setTimeout(() => {
+                map.removeLayer(explosionMarker);
+            }, 2600);
+        }
 
         async function getPlaceName(lat, lon) {
             try {
@@ -616,7 +720,7 @@
             playAlertSound();
             const place = await getPlaceName(lat, lon);
 
-            document.getElementById('alertTitle').innerText = `⚠️ ОБНАРУЖЕН ${type.toUpperCase()}`;
+            document.getElementById('alertTitle').innerText = `⚠️ ОБНАРУЖЕНА ЦЕЛЬ: ${type.toUpperCase()}`;
             document.getElementById('alertText').innerText = `Под угрозой: ${place}`;
             document.getElementById('alertSub').innerText = `Курс: ${heading}° | Координаты: ${lat.toFixed(3)}, ${lon.toFixed(3)}`;
 
@@ -630,32 +734,46 @@
         }
 
         function getThreatSvg(rawType, heading) {
-            const lowerType = String(rawType || '').toLowerCase();
+            const t = String(rawType || '').toLowerCase();
 
-            if (lowerType.includes('shahed') || lowerType.includes('шахед') || lowerType.includes('uav') || lowerType.includes('бпла')) {
+            if (t.includes('ракета') || t.includes('rocket') || t.includes('missile') || t.includes('х-101') || t.includes('калибр') || t.includes('кинжал')) {
                 return `
                     <div class="liquid-marker">
                         <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <path d="M12 2L2 21L12 17L22 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
+                            <path d="M12 2L15 8V16L12 22L9 16V8L12 2Z" fill="#A855F7" stroke="#FFFFFF" stroke-width="1.5"/>
+                            <path d="M9 12H15" stroke="#FFFFFF" stroke-width="1.5"/>
                         </svg>
-                    </div>
-                `;
-            } else if (lowerType.includes('каб') || lowerType.includes('kab') || lowerType.includes('бомб') || lowerType.includes('bomb')) {
+                    </div>`;
+            } else if (t.includes('пво') || t.includes('pvo') || t.includes('перехват') || t.includes('зрн') || t.includes('зенит')) {
+                return `
+                    <div class="liquid-marker">
+                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
+                            <circle cx="12" cy="12" r="8" fill="#3B82F6" stroke="#FFFFFF" stroke-width="1.5"/>
+                            <path d="M12 2V6M12 18V22M2 12H6M18 12H22" stroke="#FFFFFF" stroke-width="2"/>
+                        </svg>
+                    </div>`;
+            } else if (t.includes('каб') || t.includes('kab') || t.includes('бомб') || t.includes('bomb') || t.includes('фаб')) {
                 return `
                     <div class="liquid-marker">
                         <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
                             <path d="M12 2C10.5 2 9.5 3.5 9.5 5V9.5C8 11 7 13 7 15.5C7 18.5 9.2 21 12 21C14.8 21 17 18.5 17 15.5C17 13 16 11 14.5 9.5V5C14.5 3.5 13.5 2 12 2Z" fill="#F97316" stroke="#FFFFFF" stroke-width="1.5"/>
                         </svg>
-                    </div>
-                `;
+                    </div>`;
+            } else if (t.includes('shahed') || t.includes('шахед') || t.includes('герань')) {
+                return `
+                    <div class="liquid-marker">
+                        <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
+                            <path d="M12 2L2 21L12 17L22 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5" stroke-linejoin="round"/>
+                        </svg>
+                    </div>`;
             } else {
                 return `
                     <div class="liquid-marker">
                         <svg class="uav-svg" viewBox="0 0 24 24" fill="none" style="transform: rotate(${heading}deg);">
-                            <circle cx="12" cy="12" r="7" fill="#EF4444" stroke="#FFFFFF" stroke-width="1.5"/>
+                            <path d="M12 2L3 20L12 16L21 20L12 2Z" fill="#EAB308" stroke="#FFFFFF" stroke-width="1.5"/>
+                            <circle cx="12" cy="11" r="2" fill="#FFFFFF"/>
                         </svg>
-                    </div>
-                `;
+                    </div>`;
             }
         }
 
@@ -687,7 +805,10 @@
                 const now = Date.now();
 
                 let totalCount = 0;
+                let shahedCount = 0;
+                let rocketCount = 0;
                 let kabCount = 0;
+                let pvoCount = 0;
 
                 for (let index = 0; index < uavs.length; index++) {
                     const uav = uavs[index];
@@ -697,10 +818,19 @@
                     const newLat = parseFloat(uav.latitude);
                     const newLon = parseFloat(uav.longitude);
                     const heading = parseFloat(uav.heading || 0);
-                    const type = uav.type || 'БПЛА';
+                    const type = uav.type || 'Неизвестный БПЛА';
+                    const lowerType = type.toLowerCase();
 
                     totalCount++;
-                    if (type.toLowerCase().includes('каб')) kabCount++;
+                    if (lowerType.includes('ракета') || lowerType.includes('missile') || lowerType.includes('rocket')) {
+                        rocketCount++;
+                    } else if (lowerType.includes('каб') || lowerType.includes('kab')) {
+                        kabCount++;
+                    } else if (lowerType.includes('пво') || lowerType.includes('pvo')) {
+                        pvoCount++;
+                    } else {
+                        shahedCount++;
+                    }
 
                     if (!isNaN(newLat) && !isNaN(newLon)) {
                         if (activeMarkers[id]) {
@@ -730,10 +860,15 @@
                             marker.on('mouseover', () => playHoverSound());
                             marker.on('click', () => playClickSound());
 
+                            let circleColor = '#ef4444';
+                            if (lowerType.includes('ракета')) circleColor = '#a855f7';
+                            if (lowerType.includes('пво')) circleColor = '#3b82f6';
+                            if (lowerType.includes('каб')) circleColor = '#f97316';
+
                             const circle = L.circle([startLat, startLon], {
                                 radius: 5000,
-                                color: '#ef4444',
-                                fillColor: '#ef4444',
+                                color: circleColor,
+                                fillColor: circleColor,
                                 fillOpacity: 0.15,
                                 weight: 1
                             }).addTo(map);
@@ -759,11 +894,45 @@
                 isInitialLoad = false;
 
                 document.getElementById('activeCount').innerText = totalCount;
+                document.getElementById('shahedCount').innerText = shahedCount;
+                document.getElementById('rocketCount').innerText = rocketCount;
                 document.getElementById('kabCount').innerText = kabCount;
+                document.getElementById('pvoCount').innerText = pvoCount;
+
                 document.getElementById('statusDot').style.backgroundColor = 'var(--accent-green)';
 
+                // ПРОВЕРКА ПРОПАВШИХ ЦЕЛЕЙ И ДЕТЕКЦИЯ СБИТИЯ
                 Object.keys(activeMarkers).forEach(id => {
                     if (!currentIds.has(id)) {
+                        const targetLat = activeMarkers[id].currentLat;
+                        const targetLon = activeMarkers[id].currentLon;
+                        const targetType = (activeMarkers[id].type || '').toLowerCase();
+
+                        // Ищем, было ли ПВО или зенитная ракета поблизости (в радиусе 25 км)
+                        let isIntercepted = false;
+                        if (!targetType.includes('пво')) {
+                            Object.keys(activeMarkers).forEach(otherId => {
+                                if (otherId !== id) {
+                                    const otherType = (activeMarkers[otherId].type || '').toLowerCase();
+                                    if (otherType.includes('пво') || otherType.includes('перехват') || otherType.includes('зрк')) {
+                                        const dist = calculateDistanceKm(
+                                            targetLat, targetLon,
+                                            activeMarkers[otherId].currentLat, activeMarkers[otherId].currentLon
+                                        );
+                                        if (dist <= 25) {
+                                            isIntercepted = true;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        // Если ПВО было рядом — спавним взрыв "СБИТ"
+                        if (isIntercepted) {
+                            triggerInterceptAnimation(targetLat, targetLon);
+                        }
+
+                        // Удаляем слой цели с карты
                         map.removeLayer(activeMarkers[id]);
                         map.removeLayer(activeCircles[id]);
                         delete activeMarkers[id];
@@ -791,10 +960,12 @@
                 marker.lastUpdate = now;
 
                 const heading = marker.heading || 0;
-                const type = marker.type || 'БПЛА';
+                const type = marker.type || 'Цель';
                 const rad = ((heading - 90) * Math.PI) / 180;
-                
-                const speedPerSecond = 0.0005; 
+
+                let speedPerSecond = 0.0005;
+                if (type.toLowerCase().includes('ракета')) speedPerSecond = 0.0012;
+
                 const distance = speedPerSecond * deltaSeconds;
 
                 marker.currentLat -= Math.sin(rad) * distance;
@@ -842,7 +1013,6 @@
                     const lat = parseFloat(data[0].lat);
                     const lon = parseFloat(data[0].lon);
 
-                    playSearchFoundSound();
                     map.flyTo([lat, lon], 12, { duration: 1.5 });
 
                     if (searchMarker) map.removeLayer(searchMarker);
