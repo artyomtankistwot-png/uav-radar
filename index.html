@@ -218,6 +218,34 @@
             max-width: 400px;
         }
 
+        /* Системные баннеры объявлений */
+        .notification-banner {
+            position: fixed;
+            top: -100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-glass);
+            backdrop-filter: blur(16px) saturate(180%);
+            border: 1px solid var(--accent-yellow);
+            border-radius: 14px;
+            padding: 12px 20px;
+            color: var(--text-main);
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(234, 179, 8, 0.25);
+            z-index: 4000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: top 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            max-width: 90%;
+            text-align: center;
+        }
+
+        .notification-banner.visible {
+            top: 20px;
+        }
+
         /* Кнопки управления справа */
         .controls-panel {
             top: 80px;
@@ -494,6 +522,12 @@
         <div class="maintenance-sub">Проводятся технические работы или обновление систем наблюдения. Попробуйте обновить страницу позже.</div>
     </div>
 
+    <!-- Системный баннер объявлений -->
+    <div class="notification-banner" id="notifBanner">
+        <span>📢</span>
+        <span id="notifText">Текст сообщения</span>
+    </div>
+
     <!-- Верхняя панель -->
     <div class="glass-panel top-bar">
         <div class="logo-box">
@@ -646,7 +680,8 @@
 
         // --- Переменные состояния ---
         let isSystemOffline = false;
-        const map = L.map('map', { zoomControl: false }).setView([48.3794, 31.1656], 6);
+        const defaultCenter = [48.3794, 31.1656];
+        const map = L.map('map', { zoomControl: false }).setView(defaultCenter, 6);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; OpenStreetMap contributors',
@@ -710,17 +745,41 @@
             });
         }
 
+        function updateCounters(counts) {
+            document.getElementById('activeCount').innerText = counts.total;
+            document.getElementById('shahedCount').innerText = counts.shahed;
+            document.getElementById('rocketCount').innerText = counts.rocket;
+            document.getElementById('kabCount').innerText = counts.kab;
+            document.getElementById('pvoCount').innerText = counts.pvo;
+        }
+
+        function recalculateStats() {
+            let total = 0, shahed = 0, rocket = 0, kab = 0, pvo = 0;
+            Object.values(activeMarkers).forEach(marker => {
+                total++;
+                const lowerType = (marker.type || '').toLowerCase();
+                if (lowerType.includes('ракета')) rocket++;
+                else if (lowerType.includes('каб')) kab++;
+                else if (lowerType.includes('пво')) pvo++;
+                else shahed++;
+            });
+            updateCounters({ total, shahed, rocket, kab, pvo });
+        }
+
         async function fetchUAVData() {
             if (isSystemOffline) return;
 
+            const startTime = performance.now();
             try {
                 const response = await fetch('/api/uavs');
-                if (!response.ok) throw new Error("Ошибка");
+                const endTime = performance.now();
+                const ping = Math.round(endTime - startTime);
+                document.getElementById('pingVal').innerText = ping + ' ms';
+
+                if (!response.ok) throw new Error("Ошибка получения данных");
                 const result = await response.json();
                 const uavs = result.data || [];
                 const currentIds = new Set();
-
-                let totalCount = 0, shahedCount = 0, rocketCount = 0, kabCount = 0, pvoCount = 0;
 
                 uavs.forEach((uav, index) => {
                     const id = String(uav.id || `uav_${index}`);
@@ -732,14 +791,12 @@
                     const type = uav.type || 'БПЛА';
                     const lowerType = type.toLowerCase();
 
-                    totalCount++;
-                    if (lowerType.includes('ракета')) rocketCount++;
-                    else if (lowerType.includes('каб')) kabCount++;
-                    else if (lowerType.includes('пво')) pvoCount++;
-                    else shahedCount++;
-
                     if (!isNaN(newLat) && !isNaN(newLon)) {
                         if (activeMarkers[id]) {
+                            activeMarkers[id].setLatLng([newLat, newLon]);
+                            activeMarkers[id].setIcon(createUAVIcon(type, heading));
+                            activeCircles[id].setLatLng([newLat, newLon]);
+
                             activeMarkers[id].currentLat = newLat;
                             activeMarkers[id].currentLon = newLon;
                             activeMarkers[id].heading = heading;
@@ -765,28 +822,10 @@
                     }
                 });
 
-                document.getElementById('activeCount').innerText = totalCount;
-                document.getElementById('shahedCount').innerText = shahedCount;
-                document.getElementById('rocketCount').innerText = rocketCount;
-                document.getElementById('kabCount').innerText = kabCount;
-                document.getElementById('pvoCount').innerText = pvoCount;
-
-                // Проверка перехватов
+                // Удаляем объекты, пропавшие из API
                 Object.keys(activeMarkers).forEach(id => {
-                    if (!currentIds.has(id)) {
-                        const targetLat = activeMarkers[id].currentLat;
-                        const targetLon = activeMarkers[id].currentLon;
-
-                        let isIntercepted = false;
-                        Object.keys(activeMarkers).forEach(otherId => {
-                            if (otherId !== id && activeMarkers[otherId].type.toLowerCase().includes('пво')) {
-                                const dist = calculateDistanceKm(targetLat, targetLon, activeMarkers[otherId].currentLat, activeMarkers[otherId].currentLon);
-                                if (dist <= 25) isIntercepted = true;
-                            }
-                        });
-
-                        if (isIntercepted) triggerInterceptAnimation(targetLat, targetLon);
-
+                    if (!currentIds.has(id) && !id.startsWith('test_')) {
+                        triggerInterceptAnimation(activeMarkers[id].currentLat, activeMarkers[id].currentLon);
                         map.removeLayer(activeMarkers[id]);
                         map.removeLayer(activeCircles[id]);
                         delete activeMarkers[id];
@@ -794,14 +833,69 @@
                     }
                 });
 
-            } catch (e) {
-                console.log("Ожидание данных сервера...");
+                recalculateStats();
+                document.getElementById('networkState').innerText = 'Стабильно';
+                document.getElementById('networkState').style.color = 'var(--accent-green)';
+            } catch (err) {
+                document.getElementById('networkState').innerText = 'Ошибка API';
+                document.getElementById('networkState').style.color = 'var(--accent-red)';
             }
         }
 
-        // --- ФУНКЦИИ АДМИН-ПАНЕЛИ ---
-        const adminModal = document.getElementById('adminModal');
+        // --- Управленческий функционал ---
 
+        // Переключение темы (светлая/тёмная)
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            playClickSound();
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            document.getElementById('themeToggle').innerText = isDark ? '🌙' : '☀️';
+        });
+
+        // Центрирование карты
+        document.getElementById('recenterBtn').addEventListener('click', () => {
+            playClickSound();
+            map.flyTo(defaultCenter, 6, { duration: 1.2 });
+        });
+
+        // Логика Поиска через OSM Nominatim
+        async function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) return;
+
+            playClickSound();
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                if (data && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+                    map.flyTo([lat, lon], 11, { duration: 1.5 });
+                } else {
+                    showNotice("Населенный пункт не найден");
+                }
+            } catch (e) {
+                showNotice("Ошибка поиска");
+            }
+        }
+
+        document.getElementById('searchBtn').addEventListener('click', handleSearch);
+        document.getElementById('searchInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleSearch();
+        });
+
+        // Вызов сообщений/уведомлений
+        function showNotice(text) {
+            const banner = document.getElementById('notifBanner');
+            document.getElementById('notifText').innerText = text;
+            banner.classList.add('visible');
+            setTimeout(() => {
+                banner.classList.remove('visible');
+            }, 4000);
+        }
+
+        // --- Админ панель ---
+        const adminModal = document.getElementById('adminModal');
         document.getElementById('openAdminBtn').addEventListener('click', () => {
             playClickSound();
             adminModal.classList.add('active');
@@ -812,26 +906,21 @@
             adminModal.classList.remove('active');
         });
 
-        // 1. Выключение радара (Оффлайн режим)
+        // Тумблер оффлайн режима
         document.getElementById('toggleOfflineBtn').addEventListener('click', () => {
             playClickSound();
             isSystemOffline = !isSystemOffline;
-            const banner = document.getElementById('maintenanceOverlay');
-            const btn = document.getElementById('toggleOfflineBtn');
-
+            const overlay = document.getElementById('maintenanceOverlay');
             if (isSystemOffline) {
-                banner.classList.add('active');
-                btn.innerText = "✅ Включить радар обратно";
-                btn.classList.remove('danger');
+                overlay.classList.add('active');
+                document.getElementById('toggleOfflineBtn').innerText = '✅ Включить радар';
             } else {
-                banner.classList.remove('active');
-                btn.innerText = "🚫 Выключить радар (Оффлайн)";
-                btn.classList.add('danger');
-                fetchUAVData();
+                overlay.classList.remove('active');
+                document.getElementById('toggleOfflineBtn').innerText = '🚫 Выключить радар (Оффлайн)';
             }
         });
 
-        // 2. Полная очистка точек на карте
+        // Очистить все цели
         document.getElementById('clearAllTargetsBtn').addEventListener('click', () => {
             playClickSound();
             Object.keys(activeMarkers).forEach(id => {
@@ -840,28 +929,30 @@
                 delete activeMarkers[id];
                 delete activeCircles[id];
             });
-            document.getElementById('activeCount').innerText = '0';
-            document.getElementById('shahedCount').innerText = '0';
-            document.getElementById('rocketCount').innerText = '0';
-            document.getElementById('kabCount').innerText = '0';
-            document.getElementById('pvoCount').innerText = '0';
-            alert('Все цели временно очищены с вашей карты!');
+            recalculateStats();
+            showNotice("Карта очищена");
         });
 
-        // 3. Тестовый спавн объектов для проверки
+        // Спавн тестовых целей
         window.spawnTestTarget = function(type) {
             playClickSound();
-            const id = 'test_' + Date.now();
             const center = map.getCenter();
-            const lat = center.lat + (Math.random() - 0.5) * 0.5;
-            const lon = center.lng + (Math.random() - 0.5) * 0.5;
+            const id = 'test_' + Date.now();
+            const offsetLat = (Math.random() - 0.5) * 0.8;
+            const offsetLon = (Math.random() - 0.5) * 0.8;
+            const lat = center.lat + offsetLat;
+            const lon = center.lng + offsetLon;
             const heading = Math.floor(Math.random() * 360);
 
             const marker = L.marker([lat, lon], { icon: createUAVIcon(type, heading) }).addTo(map);
+
+            let circleColor = '#ef4444';
+            const lowerType = type.toLowerCase();
+            if (lowerType.includes('ракета')) circleColor = '#a855f7';
+            if (lowerType.includes('пво')) circleColor = '#3b82f6';
+
             const circle = L.circle([lat, lon], {
-                radius: 5000,
-                color: type.includes('ПВО') ? '#3b82f6' : '#ef4444',
-                fillOpacity: 0.15
+                radius: 5000, color: circleColor, fillColor: circleColor, fillOpacity: 0.15, weight: 1
             }).addTo(map);
 
             activeMarkers[id] = marker;
@@ -871,39 +962,43 @@
             activeMarkers[id].heading = heading;
             activeMarkers[id].type = type;
 
-            document.getElementById('activeCount').innerText = Object.keys(activeMarkers).length;
+            recalculateStats();
+            showNotice(`Добавлена цель: ${type}`);
         };
 
-        // 4. Эмуляция сбития
+        // Симуляция збития випадкової цілі
         window.triggerTestIntercept = function() {
             playClickSound();
-            const center = map.getCenter();
-            triggerInterceptAnimation(center.lat, center.lng);
+            const keys = Object.keys(activeMarkers);
+            if (keys.length === 0) {
+                showNotice("Нет активных целей для сбития");
+                return;
+            }
+            const randomId = keys[Math.floor(Math.random() * keys.length)];
+            const target = activeMarkers[randomId];
+
+            triggerInterceptAnimation(target.currentLat, target.currentLon);
+            map.removeLayer(target);
+            map.removeLayer(activeCircles[randomId]);
+            delete activeMarkers[randomId];
+            delete activeCircles[randomId];
+
+            recalculateStats();
         };
 
-        // 5. Системное объявление
+        // Отправка системного объявления из админки
         document.getElementById('sendNoticeBtn').addEventListener('click', () => {
-            playClickSound();
-            const input = document.getElementById('adminNoticeInput');
-            if (input.value.trim() !== "") {
-                alert(`📢 Системное сообщение отправлено: "${input.value.trim()}"`);
-                input.value = "";
+            const val = document.getElementById('adminNoticeInput').value.trim();
+            if (val) {
+                playClickSound();
+                showNotice(val);
+                document.getElementById('adminNoticeInput').value = '';
             }
         });
 
-        // Кнопки интерфейса
-        document.getElementById('themeToggle').addEventListener('click', () => {
-            playClickSound();
-            document.body.classList.toggle('dark-mode');
-        });
-
-        document.getElementById('recenterBtn').addEventListener('click', () => {
-            playClickSound();
-            map.flyTo([48.3794, 31.1656], 6, { duration: 1.5 });
-        });
-
+        // Запуск регулярного обновления каждые 3 секунды
+        setInterval(fetchUAVData, 3000);
         fetchUAVData();
-        setInterval(fetchUAVData, 5000);
     </script>
 </body>
 </html>
